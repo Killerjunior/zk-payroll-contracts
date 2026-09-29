@@ -153,6 +153,15 @@ than failing CI.
 
 ## Privacy: do not put secrets in environment variables
 
+### Employer-scoped import references
+
+External employee reference IDs are indexed within the salary commitment
+contract instance, which is the employer payroll scope. Duplicate IDs assigned
+to two employees in that scope are rejected with a generic error. Updating an
+employee's ID releases the old ID for reassignment. Keep these IDs
+non-sensitive (for example, an HR employee code); rejected calls do not include
+the submitted ID or any salary or employee data in their error message.
+
 Never export the following into shell history, CI logs, or `.env` files checked
 into git:
 

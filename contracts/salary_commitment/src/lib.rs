@@ -377,6 +377,7 @@ impl SalaryCommitmentContract {
         }
 
         // Check if this reference ID is already assigned to a different employee
+        // in this employer's salary commitment contract (the payroll scope).
         let index_key = DataKey::ReferenceIdIndex(reference_id.clone());
         if let Some(existing_employee) = env
             .storage()
