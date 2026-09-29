@@ -159,6 +159,28 @@ let revision = payroll.get_config_revision(); // 1, 2, 3, ... with no gaps
 See [docs/config-audit-events.md](docs/config-audit-events.md) for the schema,
 key table, and how to verify a reference.
 
+### Payroll Period Health Summary
+
+The `payroll` contract exposes `get_period_health_summary` to provide operators and monitoring dashboards with actionable operational readiness diagnostics without leaking private employee identities or individual salary information (#552).
+
+```rust
+let summary = payroll.get_period_health_summary(&period);
+// summary.status: PeriodHealthStatus (Healthy, Warning, Blocked)
+// summary.reason: PeriodHealthReason (Normal, PreOpen, GracePeriod, WindowClosed, ContractPaused, PeriodFrozen, ...)
+// summary.can_execute: bool
+// summary.is_frozen: bool
+// summary.is_paused: bool
+// summary.window_status: Option<SettlementWindowStatus>
+// summary.capacity_configured: bool
+// summary.batch_count: u32
+// summary.employee_count: u32
+// summary.capacity_exceeded: bool
+```
+
+- **Operational Health**: Classifies periods into `Healthy` (ready for execution), `Warning` (grace period, frozen configuration), or `Blocked` (paused, closed window, capacity exhausted).
+- **Actionable Diagnostics**: Clear, typed reason codes indicate exact blockers or operational alerts (e.g., `PreOpen`, `ContractPaused`, `BatchCapacityExceeded`).
+- **Privacy Guarantees**: Plaintext salaries, employee commitments, and individual recipient rows are never exposed.
+
 ### Register Employee with Private Salary
 
 ```rust
