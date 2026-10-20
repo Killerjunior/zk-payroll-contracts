@@ -283,6 +283,13 @@ pub trait PayrollRegistryTrait {
     /// Return `true` iff the employee is registered AND has `Active` status.
     fn is_eligible(env: Env, company_id: u64, employee: Address) -> bool;
 
+    /// Return whether a registered employee can be reactivated by transitioning
+    /// to `Active`. Only suspended or incomplete employees with a registered
+    /// commitment under a non-revoked company are eligible. Missing records,
+    /// active employees, and terminally offboarded employees return `false`.
+    /// This read-only preflight does not expose commitment or payroll data.
+    fn is_reactivation_eligible(env: Env, company_id: u64, employee: Address) -> bool;
+
     /// Read-only helper for clients that only need active/suspended state.
     fn is_employee_active(env: Env, company_id: u64, employee: Address) -> bool;
 
@@ -948,6 +955,33 @@ impl PayrollRegistryTrait for PayrollRegistry {
 
     fn is_eligible(env: Env, company_id: u64, employee: Address) -> bool {
         Self::is_employee_active(env, company_id, employee)
+    }
+
+    fn is_reactivation_eligible(env: Env, company_id: u64, employee: Address) -> bool {
+        let employee_key = DataKey::Employee(company_id, employee.clone());
+        if !env.storage().persistent().has(&employee_key) {
+            return false;
+        }
+
+        let company = match env
+            .storage()
+            .persistent()
+            .get::<DataKey, CompanyInfo>(&DataKey::Company(company_id))
+        {
+            Some(company) => company,
+            None => return false,
+        };
+        if company.revoked {
+            return false;
+        }
+
+        let status = env
+            .storage()
+            .persistent()
+            .get::<DataKey, EmployeeStatus>(&DataKey::EmpStatus(company_id, employee))
+            .unwrap_or(EmployeeStatus::Incomplete);
+
+        matches!(status, EmployeeStatus::Suspended | EmployeeStatus::Incomplete)
     }
 
     fn is_employee_active(env: Env, company_id: u64, employee: Address) -> bool {

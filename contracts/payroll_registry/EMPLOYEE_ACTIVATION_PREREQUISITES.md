@@ -47,6 +47,17 @@ Before an employee can be activated, the following checks run:
 - **Marking Incomplete**: No validation required
 - **Re-activating from Active**: No re-validation (idempotent)
 
+### Reactivation Preflight
+
+Clients can call `is_reactivation_eligible(company_id, employee)` before
+requesting a status change. It returns `true` only when the employee is
+registered with a commitment, their company exists and is not revoked, and
+their current status is `Suspended` or `Incomplete`. It returns `false` for
+unknown employees, active employees, offboarded employees, and revoked or
+missing companies. The query returns only a boolean and does not expose
+commitment or payroll data. A `true` result is a preflight; the authorized
+status update remains subject to the contract's normal checks.
+
 ## Implementation Details
 
 ### Integration Point
