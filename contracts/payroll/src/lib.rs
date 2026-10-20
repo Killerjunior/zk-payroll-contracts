@@ -204,6 +204,17 @@ pub enum ReconciliationStatus {
     Failed,
 }
 
+/// Privacy-safe audit marker for the latest accounting reconciliation update
+/// recorded for a payroll run.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReconciliationMarker {
+    pub run_id: u64,
+    pub status: ReconciliationStatus,
+    pub marked_at: u64,
+    pub marked_by: Address,
+}
+
 /// Canonical payroll run state shared by contracts, SDKs, and dashboards (#159).
 ///
 /// This enum is the source of truth for user-visible payroll run lifecycle
@@ -1457,6 +1468,8 @@ pub enum DataKey {
     /// never stored on-chain, only its hash, so this key existing is what
     /// `register_memo_hash`'s duplicate guard checks for.
     MemoHash(Address, Symbol, BytesN<32>),
+    /// Latest accounting reconciliation marker for a payroll run (#722).
+    ReconciliationMarker(u64),
     // Future upgrade example (issue #196):
     // PayrollRunV2(u64),  // Would be added here when schema evolution is needed
 }
@@ -3646,6 +3659,15 @@ impl Payroll {
             .persistent()
             .get(&DataKey::PayrollRun(run_id))
             .expect("Run not found")
+    }
+
+    /// Return the latest accounting reconciliation marker for a run, if one
+    /// has been explicitly recorded. The marker contains no payroll amounts
+    /// or employee data.
+    pub fn get_reconciliation_marker(e: Env, run_id: u64) -> Option<ReconciliationMarker> {
+        e.storage()
+            .persistent()
+            .get(&DataKey::ReconciliationMarker(run_id))
     }
 
     /// Pre-commit an off-chain metadata hash (SHA-256 of payroll period,
@@ -5881,6 +5903,16 @@ impl Payroll {
             panic!("Invalid payroll state transition");
         }
         Self::record_payroll_run_state(&e, run_id, next_state);
+
+        let marker = ReconciliationMarker {
+            run_id,
+            status,
+            marked_at: e.ledger().timestamp(),
+            marked_by: admin,
+        };
+        e.storage()
+            .persistent()
+            .set(&DataKey::ReconciliationMarker(run_id), &marker);
 
         e.events().publish(
             (
